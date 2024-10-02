@@ -1,10 +1,6 @@
 # Created by https://www.toptal.com/developers/gitignore/api/windows,macos,linux,cmake,python,git,visualstudio,visualstudiocode,c++,c,rust
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,macos,linux,cmake,python,git,visualstudio,visualstudiocode,c++,c,rust
 
-### MY STUFF ###
-pull.sh
-push.sh
-
 ### C ###
 # Prerequisites
 *.d
