@@ -1,119 +1,136 @@
-#include "FfbWheel.h"
-#include "Encoder.h"
+
+#include "Joystick.h"
 #include "DigitalWriteFast.h"
-#include "PID_v1.h"
 
-Wheel_ Wheel;
-#define BAUD_RATE 115200
+#define encoderPinA 2
+#define encoderPinB 3
 
-#define PULSE 9
-#define DIR 10
+#define motorPinA 7
+#define motorPinB 8
+#define motorPinPWM 9
 
-int32_t total_force = 0;
-int32_t last_total_force = 0;
+#define ENCODER_MAX_VALUE 1200
+#define ENCODER_MIN_VALUE -1200
 
-double Setpoint, Input, Output;
-//double Kp=2, Ki=5, Kd=1;
-double Kp = 0.1 , Ki = 30 , Kd =  0;
-PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
-bool initialRun = true;
+#define MAX_PWM 200
 
+bool isOutOfRange = false;
+int32_t forces[2]={0};
+Gains gains[2];
+EffectParams effectparams[2];
 
-#include "PWM.h"
-Pwm pwm;
+Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_JOYSTICK,
+  8, 0,                  // Button Count, Hat Switch Count
+  true, true, false,     // X and Y, but no Z Axis
+  true, true, false,   //  Rx, Ry, no Rz
+  false, false,          // No rudder or throttle
+  false, false, false);    // No accelerator, brake, or steering
+
+volatile long value = 0;
+int32_t g_force = 0;
+
+int32_t  currentPosition = 0;
+volatile int8_t oldState = 0;
+const int8_t KNOBDIR[] = {
+  0, 1, -1, 0,
+  -1, 0, 0, 1,
+  1, 0, 0, -1,
+  0, -1, 1, 0
+};
+
+void tick(void)
+{
+  int sig1 = digitalReadFast(encoderPinA);
+  int sig2 = digitalReadFast(encoderPinB);
+  int8_t thisState = sig1 | (sig2 << 1);
+
+  if (oldState != thisState) {
+    currentPosition += KNOBDIR[thisState | (oldState<<2)];
+    oldState = thisState;
+  } 
+}
 
 void setup() {
-  pinMode (PULSE, OUTPUT);
-  pinMode (DIR, OUTPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptA), calculateEncoderPostion, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(interruptB), calculateEncoderPostion, CHANGE);  pwm.begin();
+  Serial.begin(115200);                        
+  attachInterrupt(digitalPinToInterrupt(encoderPinA),tick,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(encoderPinB),tick,CHANGE);
+  Joystick.setRyAxisRange(0, 500);
+  Joystick.setRxAxisRange(0, 500);
+  Joystick.setYAxisRange(0, 500);
+  Joystick.setXAxisRange(ENCODER_MIN_VALUE, ENCODER_MAX_VALUE);
+  Joystick.setGains(gains);
+  Joystick.begin(true);
+
+  pinMode(motorPinA, OUTPUT);
+  pinMode(motorPinB, OUTPUT);
+  pinMode(motorPinPWM, OUTPUT);
+
+  pinMode(A0, INPUT_PULLUP);
   
-  pwm.setPWM(0);
-  Wheel.begin();
-  Input = Wheel.encoder.currentPosition;
-  myPID.SetMode(AUTOMATIC);
-  myPID.SetSampleTime(0.01);
-  myPID.SetOutputLimits(-50, 50);
-  Serial.begin(BAUD_RATE);
+  cli();
+  TCCR3A = 0; //set TCCR1A 0
+  TCCR3B = 0; //set TCCR1B 0
+  TCNT3  = 0; //counter init
+  OCR3A = 399;
+  TCCR3B |= (1 << WGM32); //open CTC mode
+  TCCR3B |= (1 << CS31); //set CS11 1(8-fold Prescaler)
+  TIMSK3 |= (1 << OCIE3A);
+  sei();
+  
 }
+
+ISR(TIMER3_COMPA_vect){
+  Joystick.getUSBPID();
+}
+
+unsigned int interval = 0;
 void loop() {
-  if (initialRun == true ) {
-//    position control is not correctly, wheel runs over disired postion serveral times before stop
-    pwm.setPWM(10);
-    gotoPosition(Wheel.encoder.minValue);
-    gotoPosition(Wheel.encoder.maxValue);
-    gotoPosition( 0);
-    initialRun = false;
-    pwm.setPWM(0);
-  } else
+  value = currentPosition;
+  
+  if(value > ENCODER_MAX_VALUE)
   {
-    // assign for re-test without initialRun
-    //        Serial.print("currentVelocity: ");
-    //        Serial.print(Wheel.encoder.maxVelocity);
-    //        Serial.print(" maxAcceleration: ");
-    //        Serial.println(Wheel.encoder.maxAcceleration);
-    //        Serial.print("   maxPositionChange: ");
-//    Serial.println(Wheel.encoder.currentPosition);
-//    Wheel.encoder.maxPositionChange = 1151;
-//    Wheel.encoder.maxVelocity  = 72;
-//    Wheel.encoder.maxAcceleration = 33;
-    Wheel.encoder.updatePosition();
-    if (Wheel.encoder.currentPosition > Wheel.encoder.maxValue) {
-      Wheel.xAxis(32767);
-    } else if (Wheel.encoder.currentPosition < Wheel.encoder.minValue) {
-      Wheel.xAxis(-32767);
-    } else {
-      Wheel.xAxis(map(Wheel.encoder.currentPosition, Wheel.encoder.minValue , Wheel.encoder.maxValue, -32768, 32767));
+    isOutOfRange = true;
+    value = ENCODER_MAX_VALUE;
+  }else if(value < ENCODER_MIN_VALUE)
+  {
+    isOutOfRange = true;
+    value = ENCODER_MIN_VALUE;
+  }else{
+    isOutOfRange = false;
+  }
+
+  Joystick.setXAxis(value);
+  Joystick.setRxAxis(analogRead(A1));
+  Joystick.setRyAxis(analogRead(A2));
+  Joystick.setYAxis(analogRead(A3));
+
+  effectparams[0].springMaxPosition = ENCODER_MAX_VALUE;
+  effectparams[0].springPosition = value;
+  effectparams[1].springMaxPosition = 255;
+  effectparams[1].springPosition = 0;
+  Joystick.setEffectParams(effectparams);
+  Joystick.getForce(forces);
+
+  
+  if(!isOutOfRange){
+    if(forces[0] > 0)
+    {
+      digitalWrite(motorPinA, HIGH);
+      digitalWrite(motorPinB, LOW);
+      analogWrite(motorPinPWM, abs(forces[0]));
+    }else{
+      digitalWrite(motorPinA, LOW);
+      digitalWrite(motorPinB, HIGH);
+      analogWrite(motorPinPWM, abs(forces[0]));
     }
-
-    Wheel.RecvFfbReport();
-    Wheel.write();
-    total_force = Wheel.ffbEngine.ForceCalculator(Wheel.encoder);    
-    total_force = constrain(total_force, -255, 255);
-    //  Serial.println(Wheel.encoder.currentPosition);
-    //  when reach max and min wheel range, max force to prevent wheel goes over.
-    if (Wheel.encoder.currentPosition >= Wheel.encoder.maxValue) {
-      total_force = 255;
-    } else if (Wheel.encoder.currentPosition <= Wheel.encoder.minValue) {
-      total_force = -255;
+  }else{
+    if(value < 0){
+      digitalWrite(motorPinA, LOW);
+      digitalWrite(motorPinB, HIGH);
+    }else{
+      digitalWrite(motorPinA, HIGH);
+      digitalWrite(motorPinB, LOW);
     }
+    analogWrite(motorPinPWM, MAX_PWM);
   }
-//  set total gain = 0.2 need replace by wheelConfig.totalGain.
-  pwm.setPWM(total_force * 0.2);
-}
-
-
-void gotoPosition(int32_t targetPosition) {
-  Setpoint = targetPosition;
-  while (Wheel.encoder.currentPosition != targetPosition) {
-    Setpoint = targetPosition;
-    Wheel.encoder.updatePosition();
-    Input = Wheel.encoder.currentPosition ;
-    myPID.Compute();
-    pwm.setPWM(-Output);
-    CalculateMaxSpeedAndMaxAcceleration();
-    Serial.print("Encoder Position: ");
-    Serial.print(Wheel.encoder.currentPosition);
-    Serial.print("  ");
-    Serial.print(Setpoint);
-    Serial.print("  ");
-    Serial.print("PWM: ");
-    Serial.println(Output);
-  }
-}
-
-void CalculateMaxSpeedAndMaxAcceleration() {
-  if (Wheel.encoder.maxVelocity < abs(Wheel.encoder.currentVelocity)) {
-    Wheel.encoder.maxVelocity = abs(Wheel.encoder.currentVelocity);
-  }
-  if (Wheel.encoder.maxAcceleration < abs(Wheel.encoder.currentAcceleration)) {
-    Wheel.encoder.maxAcceleration = abs(Wheel.encoder.currentAcceleration);
-  }
-  if (Wheel.encoder.maxPositionChange < abs(Wheel.encoder.positionChange)) {
-    Wheel.encoder.maxPositionChange = abs(Wheel.encoder.positionChange);
-  }
-}
-
-void calculateEncoderPostion() {
-  Wheel.encoder.tick();
 }
