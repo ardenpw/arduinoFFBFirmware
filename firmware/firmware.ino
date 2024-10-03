@@ -1,6 +1,9 @@
-
 #include "Joystick.h"
 #include "DigitalWriteFast.h"
+
+#include "AS5600.h"
+
+AS5600 as5600;
 
 #define encoderPinA 2
 #define encoderPinB 3
@@ -9,8 +12,8 @@
 #define motorPinB 8
 #define motorPinPWM 9
 
-#define ENCODER_MAX_VALUE 1200
-#define ENCODER_MIN_VALUE -1200
+#define ENCODER_MAX_VALUE 4095
+#define ENCODER_MIN_VALUE -4095
 
 #define MAX_PWM 200
 
@@ -38,28 +41,25 @@ const int8_t KNOBDIR[] = {
   0, -1, 1, 0
 };
 
-void tick(void)
-{
-  int sig1 = digitalReadFast(encoderPinA);
-  int sig2 = digitalReadFast(encoderPinB);
-  int8_t thisState = sig1 | (sig2 << 1);
+int32_t customEncoderOutput = 0;
 
-  if (oldState != thisState) {
-    currentPosition += KNOBDIR[thisState | (oldState<<2)];
-    oldState = thisState;
-  } 
+void setCustomEncoderOutput(int32_t newValue) {
+  customEncoderOutput = constrain(newValue, ENCODER_MIN_VALUE, ENCODER_MAX_VALUE);
 }
 
 void setup() {
   Serial.begin(115200);                        
-  attachInterrupt(digitalPinToInterrupt(encoderPinA),tick,CHANGE);
-  attachInterrupt(digitalPinToInterrupt(encoderPinB),tick,CHANGE);
   Joystick.setRyAxisRange(0, 500);
   Joystick.setRxAxisRange(0, 500);
   Joystick.setYAxisRange(0, 500);
   Joystick.setXAxisRange(ENCODER_MIN_VALUE, ENCODER_MAX_VALUE);
   Joystick.setGains(gains);
   Joystick.begin(true);
+
+  Wire.begin();
+
+  as5600.begin(4);  //  set direction pin.
+  as5600.setDirection(AS5600_CLOCK_WISE);  //  default, just be explicit.
 
   pinMode(motorPinA, OUTPUT);
   pinMode(motorPinB, OUTPUT);
@@ -84,32 +84,35 @@ ISR(TIMER3_COMPA_vect){
 }
 
 unsigned int interval = 0;
+int i;
 void loop() {
-  value = currentPosition;
-  
-  if(value > ENCODER_MAX_VALUE)
+  int32_t outputValue = (customEncoderOutput != 0) ? customEncoderOutput : 0;
+
+  if(outputValue > ENCODER_MAX_VALUE)
   {
     isOutOfRange = true;
-    value = ENCODER_MAX_VALUE;
-  }else if(value < ENCODER_MIN_VALUE)
+    outputValue = ENCODER_MAX_VALUE;
+  }else if(outputValue < ENCODER_MIN_VALUE)
   {
     isOutOfRange = true;
-    value = ENCODER_MIN_VALUE;
+    outputValue = ENCODER_MIN_VALUE;
   }else{
     isOutOfRange = false;
   }
-
-  Joystick.setXAxis(value);
+  Joystick.setXAxis(outputValue);
   Joystick.setRxAxis(analogRead(A1));
   Joystick.setRyAxis(analogRead(A2));
   Joystick.setYAxis(analogRead(A3));
 
   effectparams[0].springMaxPosition = ENCODER_MAX_VALUE;
-  effectparams[0].springPosition = value;
+  effectparams[0].springPosition = outputValue;
   effectparams[1].springMaxPosition = 255;
   effectparams[1].springPosition = 0;
   Joystick.setEffectParams(effectparams);
   Joystick.getForce(forces);
+
+  Serial.print("FFB Force: ");
+  Serial.println(forces[0]);  // Assuming forces[0] is the main force value
 
   
   if(!isOutOfRange){
@@ -133,4 +136,6 @@ void loop() {
     }
     analogWrite(motorPinPWM, MAX_PWM);
   }
+  setCustomEncoderOutput(as5600.getCumulativePosition());
+  //Serial.println(as5600.getCumulativePosition());
 }
