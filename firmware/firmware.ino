@@ -15,7 +15,7 @@ AS5600 as5600;
 #define ENCODER_MAX_VALUE 4095
 #define ENCODER_MIN_VALUE -4095
 
-#define MAX_PWM 200
+#define MAX_PWM 1023
 
 bool isOutOfRange = false;
 int32_t forces[2]={0};
