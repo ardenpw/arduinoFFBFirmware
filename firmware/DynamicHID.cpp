@@ -111,7 +111,7 @@ int DynamicHID_::RecvData(byte* data)
 {
 	int count = 0;
 	while (usb_Available()) {
-		data[count++] = (byte)USB_Recv(PID_ENDPOINT_OUT);
+		data[count++] = (byte)USBD_Recv(PID_ENDPOINT_OUT);
 	}
 	return count;
 }
@@ -119,7 +119,7 @@ int DynamicHID_::RecvData(byte* data)
 void DynamicHID_::RecvfromUsb() 
 {
 	if (usb_Available() > 0) {
-		uint16_t len = USB_Recv(PID_ENDPOINT_OUT, &out_ffbdata, 64);
+		uint16_t len = USBD_Recv(PID_ENDPOINT_OUT, &out_ffbdata, 64);
 		if (len >= 0) {
 			pidReportHandler.UppackUsbData(out_ffbdata, len);
 		}
@@ -140,7 +140,7 @@ bool DynamicHID_::GetReport(USBSetup& setup) {
 	if (report_type == DYNAMIC_HID_REPORT_TYPE_FEATURE) {
 		if ((report_id == 6))// && (gNewEffectBlockLoad.reportId==6))
 		{
-			_delay_us(500);
+			delayMicroseconds(500);
 			USB_SendControl(TRANSFER_RELEASE, pidReportHandler.getPIDBlockLoad(), sizeof(USB_FFBReport_PIDBlockLoad_Feature_Data_t));
 			pidReportHandler.pidBlockLoad.reportId = 0;
 			return (true);
@@ -167,7 +167,7 @@ bool DynamicHID_::SetReport(USBSetup& setup) {
 	if (report_type == DYNAMIC_HID_REPORT_TYPE_FEATURE) {
 		if (length == 0)
 		{
-			USB_RecvControl(&data, length);
+			USBD_RecvControl(&data, length);
 			// Block until data is read (make length negative)
 			//disableFeatureReport();
 			return true;
@@ -175,7 +175,7 @@ bool DynamicHID_::SetReport(USBSetup& setup) {
 		if (report_id == 5)
 		{
 			USB_FFBReport_CreateNewEffect_Feature_Data_t ans;
-			USB_RecvControl(&ans, sizeof(USB_FFBReport_CreateNewEffect_Feature_Data_t));
+			USBD_RecvControl(&ans, sizeof(USB_FFBReport_CreateNewEffect_Feature_Data_t));
 			pidReportHandler.CreateNewEffect(&ans);
 		}
 		return (true);
@@ -236,13 +236,13 @@ bool DynamicHID_::setup(USBSetup& setup)
 	return false;
 }
 
-DynamicHID_::DynamicHID_(void) : PluggableUSBModule(PID_ENPOINT_COUNT, 1, epType),
-                   rootNode(NULL), descriptorSize(0),
-                   protocol(DYNAMIC_HID_REPORT_PROTOCOL), idle(1)
+DynamicHID_::DynamicHID_() : PluggableUSBModule(PID_ENPOINT_COUNT, 1, epType),
+                             rootNode(NULL), descriptorSize(0),
+                             protocol(DYNAMIC_HID_REPORT_PROTOCOL), idle(1)
 {
-	epType[0] = EP_TYPE_INTERRUPT_IN;
-	epType[1] = EP_TYPE_INTERRUPT_OUT;
-	PluggableUSB().plug(this);
+    epType[0] = EP_TYPE_INTERRUPT_IN;
+    epType[1] = EP_TYPE_INTERRUPT_OUT;
+    PluggableUSB().plug(this);
 }
 
 int DynamicHID_::begin(void)
@@ -251,7 +251,7 @@ int DynamicHID_::begin(void)
 }
 
 bool DynamicHID_::usb_Available() {
-	return USB_Available(PID_ENDPOINT_OUT);
+	return USBD_Available(PID_ENDPOINT_OUT);
 }
 
 #endif /* if defined(USBCON) */

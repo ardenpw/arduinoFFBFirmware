@@ -135,7 +135,7 @@ protected:
   uint8_t getShortName(char* name);
 
 private:
-  uint8_t epType[2];
+  uint32_t epType[2];
   uint8_t out_ffbdata[64];
   DynamicHIDSubDescriptor* rootNode;
   uint16_t descriptorSize;
