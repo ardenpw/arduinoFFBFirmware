@@ -236,7 +236,7 @@ bool DynamicHID_::setup(USBSetup& setup)
 	return false;
 }
 
-DynamicHID_::DynamicHID_() : PluggableUSBModule(PID_ENPOINT_COUNT, 1, epType),
+DynamicHID_::DynamicHID_(void) : PluggableUSBModule(PID_ENPOINT_COUNT, 1, epType),
                              rootNode(NULL), descriptorSize(0),
                              protocol(DYNAMIC_HID_REPORT_PROTOCOL), idle(1)
 {
