@@ -36,7 +36,7 @@ DynamicHID_& DynamicHID()
 
 int DynamicHID_::getInterface(uint8_t* interfaceCount)
 {
-	*interfaceCount += 1; // uses 1
+	*interfaceCount += 1;
 	DYNAMIC_HIDDescriptor hidInterface = {
 		D_INTERFACE(pluggedInterface, PID_ENPOINT_COUNT, USB_DEVICE_CLASS_HUMAN_INTERFACE, DYNAMIC_HID_SUBCLASS_NONE, DYNAMIC_HID_PROTOCOL_NONE),
 		D_HIDREPORT(descriptorSize),
@@ -48,10 +48,8 @@ int DynamicHID_::getInterface(uint8_t* interfaceCount)
 
 int DynamicHID_::getDescriptor(USBSetup& setup)
 {
-	// Check if this is a HID Class Descriptor request
 	if (setup.bmRequestType != REQUEST_DEVICETOHOST_STANDARD_INTERFACE) { return 0; }
 	if (setup.wValueH != DYNAMIC_HID_REPORT_DESCRIPTOR_TYPE) { return 0; }
-	// In a HID Class Descriptor wIndex cointains the interface number
 	if (setup.wIndex != pluggedInterface) { return 0; }
 
 	int total = 0;
@@ -67,8 +65,6 @@ int DynamicHID_::getDescriptor(USBSetup& setup)
 		total += res;
 	}
 	
-	// Reset the protocol on reenumeration. Normally the host should not assume the state of the protocol
-	// due to the USB specs, but Windows and Linux just assumes its in report mode.
 	protocol = DYNAMIC_HID_REPORT_PROTOCOL;
 	
 	return total;
@@ -111,7 +107,7 @@ int DynamicHID_::RecvData(byte* data)
 {
 	int count = 0;
 	while (usb_Available()) {
-		data[count++] = (byte)USBD_Recv(PID_ENDPOINT_OUT);
+		data[count++] = (byte)USB_Recv(PID_ENDPOINT_OUT);
 	}
 	return count;
 }
@@ -119,7 +115,7 @@ int DynamicHID_::RecvData(byte* data)
 void DynamicHID_::RecvfromUsb() 
 {
 	if (usb_Available() > 0) {
-		uint16_t len = USBD_Recv(PID_ENDPOINT_OUT, &out_ffbdata, 64);
+		uint16_t len = USB_Recv(PID_ENDPOINT_OUT, &out_ffbdata, 64);
 		if (len >= 0) {
 			pidReportHandler.UppackUsbData(out_ffbdata, len);
 		}
@@ -131,16 +127,12 @@ bool DynamicHID_::GetReport(USBSetup& setup) {
 	uint8_t report_type = setup.wValueH;
 	if (report_type == DYNAMIC_HID_REPORT_TYPE_INPUT)
 	{
-		//        /* Create the next HID report to send to the host */
-		//        GetNextReport(0xFF, &JoystickReportData);
-		//        /* Write the report data to the control endpoint */
-		//        USB_SendControl(TRANSFER_RELEASE, &JoystickReportData, sizeof(JoystickReportData));
 	}
 	if (report_type == DYNAMIC_HID_REPORT_TYPE_OUTPUT) {}
 	if (report_type == DYNAMIC_HID_REPORT_TYPE_FEATURE) {
-		if ((report_id == 6))// && (gNewEffectBlockLoad.reportId==6))
+		if ((report_id == 6))
 		{
-			delayMicroseconds(500);
+			_delay_us(500);
 			USB_SendControl(TRANSFER_RELEASE, pidReportHandler.getPIDBlockLoad(), sizeof(USB_FFBReport_PIDBlockLoad_Feature_Data_t));
 			pidReportHandler.pidBlockLoad.reportId = 0;
 			return (true);
@@ -167,27 +159,21 @@ bool DynamicHID_::SetReport(USBSetup& setup) {
 	if (report_type == DYNAMIC_HID_REPORT_TYPE_FEATURE) {
 		if (length == 0)
 		{
-			USBD_RecvControl(&data, length);
-			// Block until data is read (make length negative)
-			//disableFeatureReport();
+			USB_RecvControl(&data, length);
 			return true;
 		}
 		if (report_id == 5)
 		{
 			USB_FFBReport_CreateNewEffect_Feature_Data_t ans;
-			USBD_RecvControl(&ans, sizeof(USB_FFBReport_CreateNewEffect_Feature_Data_t));
+			USB_RecvControl(&ans, sizeof(USB_FFBReport_CreateNewEffect_Feature_Data_t));
 			pidReportHandler.CreateNewEffect(&ans);
 		}
 		return (true);
 	}
 	if (setup.wValueH == DYNAMIC_HID_REPORT_TYPE_INPUT)
 	{
-		/*if(length == sizeof(JoystickReportData))
-		  {
-		  USB_RecvControl(&JoystickReportData, length);
-		  return true;
-		  }*/
 	}
+	return false;
 }
 
 bool DynamicHID_::setup(USBSetup& setup)
@@ -202,24 +188,19 @@ bool DynamicHID_::setup(USBSetup& setup)
 	if (requestType == REQUEST_DEVICETOHOST_CLASS_INTERFACE)
 	{
 		if (request == DYNAMIC_HID_GET_REPORT) {
-			// TODO: DYNAMIC_HID_GetReport();
 			GetReport(setup);
 			return true;
 		}
 		if (request == DYNAMIC_HID_GET_PROTOCOL) {
-			// TODO: Send8(protocol);
 			return true;
 		}
 		if (request == DYNAMIC_HID_GET_IDLE) {
-			// TODO: Send8(idle);
 		}
 	}
 
 	if (requestType == REQUEST_HOSTTODEVICE_CLASS_INTERFACE)
 	{
 		if (request == DYNAMIC_HID_SET_PROTOCOL) {
-			// The USB Host tells us if we are in boot or report mode.
-			// This only works with a real boot compatible device.
 			protocol = setup.wValueL;
 			return true;
 		}
@@ -240,9 +221,9 @@ DynamicHID_::DynamicHID_(void) : PluggableUSBModule(PID_ENPOINT_COUNT, 1, epType
                              rootNode(NULL), descriptorSize(0),
                              protocol(DYNAMIC_HID_REPORT_PROTOCOL), idle(1)
 {
-    epType[0] = EP_TYPE_INTERRUPT_IN;
-    epType[1] = EP_TYPE_INTERRUPT_OUT;
-    PluggableUSB().plug(this);
+	epType[0] = EP_TYPE_INTERRUPT_IN;
+	epType[1] = EP_TYPE_INTERRUPT_OUT;
+	PluggableUSB().plug(this);
 }
 
 int DynamicHID_::begin(void)
@@ -251,7 +232,7 @@ int DynamicHID_::begin(void)
 }
 
 bool DynamicHID_::usb_Available() {
-	return USBD_Available(PID_ENDPOINT_OUT);
+	return USB_Available(PID_ENDPOINT_OUT);
 }
 
 #endif /* if defined(USBCON) */

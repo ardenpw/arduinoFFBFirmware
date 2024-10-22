@@ -136,7 +136,6 @@ void loop() {
   Joystick.setEffectParams(effectparams);
   Joystick.getForce(forces);
 
-  Serial.print("FFB Force: ");
   Serial.println(forces[0]);  // Assuming forces[0] is the main force value
 
   if (!isOutOfRange) {
