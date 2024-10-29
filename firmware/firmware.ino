@@ -39,16 +39,7 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID, JOYSTICK_TYPE_JOYSTICK,
 
 volatile long value = 0;
 int32_t g_force = 0;
-
 int32_t currentPosition = 0;
-volatile int8_t oldState = 0;
-const int8_t KNOBDIR[] = {
-  0, 1, -1, 0,
-  -1, 0, 0, 1,
-  1, 0, 0, -1,
-  0, -1, 1, 0
-};
-
 int32_t customEncoderOutput = 0;
 
 void setCustomEncoderOutput(int32_t newValue) {
@@ -56,7 +47,12 @@ void setCustomEncoderOutput(int32_t newValue) {
 }
 
 void setup() {
-  Serial.begin(115200);                        
+  Serial.begin(115200);
+  while (!Serial) {
+    ; // Wait for serial port to connect. Needed for native USB
+  }
+  Serial.println("Setup started");
+  
   Joystick.setRyAxisRange(0, 500);
   Joystick.setRxAxisRange(0, 500);
   Joystick.setYAxisRange(0, 500);
@@ -66,7 +62,10 @@ void setup() {
 
   Wire.begin();
 
-  as5600.begin(4);  //  set direction pin.
+  if (!as5600.begin(4)) {
+    Serial.println("Failed to initialize AS5600 sensor");
+    while (1);
+  }
   as5600.setDirection(AS5600_CLOCK_WISE);  //  default, just be explicit.
 
   pinMode(motorPinA, OUTPUT);
@@ -76,42 +75,44 @@ void setup() {
   pinMode(A0, INPUT_PULLUP);
   
   setupTimer();
+  Serial.println("Setup completed");
 }
 
 void setupTimer() {
   #ifdef USING_LEONARDO
     cli();
-    TCCR3A = 0; //set TCCR1A 0
-    TCCR3B = 0; //set TCCR1B 0
-    TCNT3  = 0; //counter init
+    TCCR3A = 0;
+    TCCR3B = 0;
+    TCNT3  = 0;
     OCR3A = 399;
-    TCCR3B |= (1 << WGM32); //open CTC mode
-    TCCR3B |= (1 << CS31); //set CS11 1(8-fold Prescaler)
+    TCCR3B |= (1 << WGM32);
+    TCCR3B |= (1 << CS31);
     TIMSK3 |= (1 << OCIE3A);
     sei();
   #elif defined(USING_DUE)
     pmc_set_writeprotect(false);
     pmc_enable_periph_clk(ID_TC0);
     TC_Configure(TC0, 0, TC_CMR_WAVE | TC_CMR_WAVSEL_UP_RC | TC_CMR_TCCLKS_TIMER_CLOCK4);
-    TC0->TC_CHANNEL[0].TC_RC = 41999;
+    TC0->TC_CHANNEL[0].TC_RC = 525;
     TC0->TC_CHANNEL[0].TC_IER = TC_IER_CPCS;
     NVIC_EnableIRQ(TC0_IRQn);
     TC_Start(TC0, 0);
   #endif
+  Serial.println("Timer setup completed");
 }
 
-#ifdef USING_LEONARDO
-ISR(TIMER3_COMPA_vect) {
-  Joystick.getUSBPID();
-}
-#elif defined(USING_DUE)
-void TC0_Handler() {
-  TC_GetStatus(TC0, 0);
-  Joystick.getUSBPID();
-}
-#endif
+void handleInterrupt() {
+  static uint32_t lastInterruptTime = 0;
+  uint32_t currentTime = micros();
+  
+  if (currentTime - lastInterruptTime < 900) {
+    return;
+  }
+  lastInterruptTime = currentTime;
 
-void loop() {
+  Joystick.getUSBPID();  // Get USB PID data
+
+  // Update force feedback calculations
   int32_t outputValue = (customEncoderOutput != 0) ? customEncoderOutput : 0;
 
   if (outputValue > ENCODER_MAX_VALUE) {
@@ -123,7 +124,7 @@ void loop() {
   } else {
     isOutOfRange = false;
   }
-  
+
   Joystick.setXAxis(outputValue);
   Joystick.setRxAxis(analogRead(A1));
   Joystick.setRyAxis(analogRead(A2));
@@ -136,8 +137,7 @@ void loop() {
   Joystick.setEffectParams(effectparams);
   Joystick.getForce(forces);
 
-  Serial.println(forces[0]);  // Assuming forces[0] is the main force value
-
+  // Apply motor control based on force feedback
   if (!isOutOfRange) {
     if (forces[0] > 0) {
       digitalWrite(motorPinA, HIGH);
@@ -158,7 +158,34 @@ void loop() {
     }
     analogWrite(motorPinPWM, MAX_PWM);
   }
-  
+
+  Joystick.sendState();
+}
+
+#ifdef USING_LEONARDO
+ISR(TIMER3_COMPA_vect) {
+  handleInterrupt();
+}
+#elif defined(USING_DUE)
+void TC0_Handler() {
+  TC_GetStatus(TC0, 0);
+  handleInterrupt();
+}
+#endif
+
+void loop() {
+  // Update encoder position
   setCustomEncoderOutput(as5600.getCumulativePosition());
-  //Serial.println(as5600.getCumulativePosition());
+  
+  // Debug output
+  static uint32_t lastPrintTime = 0;
+  uint32_t currentTime = millis();
+  
+  if (currentTime - lastPrintTime >= 1000) {
+    Serial.print("Position: ");
+    Serial.print(customEncoderOutput);
+    Serial.print(", Force: ");
+    Serial.println(forces[0]);
+    lastPrintTime = currentTime;
+  }
 }
