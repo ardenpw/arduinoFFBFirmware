@@ -11,7 +11,7 @@
   #error "This code is designed for Arduino Leonardo or Due only"
 #endif
 
-AS5600 as5600;
+AS5600 as5600; 
 
 #define encoderPinA 2
 #define encoderPinB 3
