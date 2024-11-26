@@ -73,6 +73,8 @@
 #define PID_ENDPOINT_IN	 (pluggedEndpoint)
 #define PID_ENDPOINT_OUT (pluggedEndpoint+1)
 
+extern TEffectState g_EffectStates[MAX_EFFECTS];
+
 typedef struct
 {
   uint8_t len;      // 9
@@ -116,6 +118,7 @@ public:
   int RecvData(byte* data);
   void RecvfromUsb();
   void AppendDescriptor(DynamicHIDSubDescriptor* node);
+  void DisableFFB(TEffectState* effectStates);
   PIDReportHandler pidReportHandler;
 
 protected:

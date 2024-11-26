@@ -28,10 +28,18 @@
 #define USB_Send USBD_Send
 #endif
 
+TEffectState g_EffectStates[MAX_EFFECTS];
+
 DynamicHID_& DynamicHID()
 {
 	static DynamicHID_ obj;
 	return obj;
+}
+
+void DynamicHID_::DisableFFB(TEffectState* effectStates) {
+    for (int i = 0; i < MAX_EFFECTS; i++) {
+        effectStates[i].state = 0;
+    }
 }
 
 int DynamicHID_::getInterface(uint8_t* interfaceCount)
@@ -95,12 +103,24 @@ void DynamicHID_::AppendDescriptor(DynamicHIDSubDescriptor *node)
 	descriptorSize += node->pid_length;
 }
 
-int DynamicHID_::SendReport(uint8_t id, const void* data, int len)
+int DynamicHID_::SendReport(uint8_t id, const void* data, int len) 
 {
-	uint8_t p[len + 1];
-	p[0] = id;
-	memcpy(&p[1], data, len);
-	return USB_Send(PID_ENDPOINT_IN | TRANSFER_RELEASE, p, len + 1);
+    uint8_t p[len + 1];
+    p[0] = id;
+    memcpy(&p[1], data, len);
+    
+    // Attempt to send the report and check for success
+    int attempts = 3;
+    while (attempts--) {
+        int result = USB_Send(PID_ENDPOINT_IN | TRANSFER_RELEASE, p, len + 1);
+        if (result >= 0) {
+            return result; // Success
+        }
+    }
+    
+    // If all attempts fail, disable FFB
+    DisableFFB(g_EffectStates); // Call to the new function
+    return -1; // Indicate failure
 }
 
 int DynamicHID_::RecvData(byte* data)

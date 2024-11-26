@@ -56,7 +56,11 @@ void setCustomEncoderOutput(int32_t newValue) {
 }
 
 void setup() {
-  Serial.begin(115200);                        
+  #ifdef USING_LEONARDO
+    Serial.begin(115200);
+  #elif defined(USING_DUE)
+    SerialUSB.begin(115200);
+  #endif
   Joystick.setRyAxisRange(0, 500);
   Joystick.setRxAxisRange(0, 500);
   Joystick.setYAxisRange(0, 500);
@@ -136,7 +140,11 @@ void loop() {
   Joystick.setEffectParams(effectparams);
   Joystick.getForce(forces);
 
-  Serial.println(forces[0]);  // Assuming forces[0] is the main force value
+  #ifdef USING_LEONARDO // Leonardo
+    Serial.println(forces[0]);
+  #elif defined(USING_DUE)
+    SerialUSB.println(forces[0]);
+  #endif
 
   if (!isOutOfRange) {
     if (forces[0] > 0) {
@@ -160,5 +168,4 @@ void loop() {
   }
   
   setCustomEncoderOutput(as5600.getCumulativePosition());
-  //Serial.println(as5600.getCumulativePosition());
 }
