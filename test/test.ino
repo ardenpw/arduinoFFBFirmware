@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <PluggableUSB.h>
 
-#include "HIDDescriptor.h"
+#include "FFBDescriptor.h"
 
 int main(){
   for(;;);
