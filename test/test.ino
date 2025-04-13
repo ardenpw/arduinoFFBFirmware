@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <PluggableUSB.h>
 
-#include "HIDDescriptor.h"
+#include "FFBDescriptor.h"
 
 // try and make a gamepad with buttons and axis
 
