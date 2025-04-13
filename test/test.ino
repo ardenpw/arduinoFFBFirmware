@@ -3,6 +3,15 @@
 
 #include "HIDDescriptor.h"
 
+// try and make a gamepad with buttons and axis
+
+typedef struct{
+  uint8_t reportID;
+  uint8_t buttons;
+  int16_t xAxis;
+  int16_t yAxis;
+} HIDBallsREPORT_t;
+
 int main(){
   for(;;);
 }
