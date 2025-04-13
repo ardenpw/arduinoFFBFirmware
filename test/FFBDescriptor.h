@@ -31,6 +31,6 @@ static const uint8_t _hidReportDescriptor[] PROGMEM = {
   0xC0,              // End Collection
 
   // 50 bytes
-}
+};
 
 #endif // #ifndef _FFBH

@@ -3,6 +3,18 @@
 
 #include "FFBDescriptor.h"
 
+/*
+A class that inherits from PluggableUSBModule
+Implementation of required virtual methods:
+
+getInterface()
+getDescriptor()
+setup()
+
+USB descriptor definitions
+Endpoint management
+*/
+
 // try and make a gamepad with buttons and axis
 
 typedef struct{
@@ -15,6 +27,13 @@ typedef struct{
 int main(){
   for(;;);
 }
+
+class myHIDDevice : public PluggableUSBModule {
+  public:
+    myHIDDevice(uint8_t epType) : PluggableUSBModule(1,1,epType){
+      PluggableUSB().plug(this);
+    }
+};
 
 
 /*
