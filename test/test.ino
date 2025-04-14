@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <PluggableUSB.h>
+#include <HID.h>
 
 #include "FFBDescriptor.h"
 
