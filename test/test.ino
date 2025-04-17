@@ -2,10 +2,15 @@
 #include <HID.h>
 
 #include "FFBDescriptor.h"
+#include "test.h"
 
-#define HID_REPORT_DESCRIPTOR_TYPE 0x22
+int main(){
+  for(;;);
+}
 
 /*
+#define HID_REPORT_DESCRIPTOR_TYPE 0x22
+
 A class that inherits from PluggableUSBModule
 Implementation of required virtual methods:
 
@@ -16,7 +21,7 @@ getDescriptor()
 USB descriptor definitions
 Endpoint management
 */
-
+/*
 // try and make a gamepad with buttons and axis
 
 typedef struct{
@@ -85,7 +90,7 @@ void loop(){
   aaaa.sendReport(data, 16);
   delay(1000);
 }
-
+*/
 
 /*
 const int BUTTON_PIN = 2; // Declare the button pin

@@ -1,20 +1,12 @@
-#pragma once
-#ifndef _FFBH
-#define _FFBH
+#ifndef test_h
+#define test_h
 
-static const uint8_t _hidReportDescriptor[] PROGMEM = {
-
-};
-
-#endif // #ifndef _FFBH
-
-/*
-static const uint8_t _hidReportDescriptor[] PROGMEM = {
+static const uint8_t testDescriptor[] = {
   0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
-  0x09, 0x05,        // Usage (Game Pad)
+  0x09, 0x02,        // Usage (Mouse)
   0xA1, 0x01,        // Collection (Application)
+  0x09, 0x01,        //   Usage (Pointer)
   0xA1, 0x00,        //   Collection (Physical)
-  0x85, 0x01,        //     Report ID (1)
   0x05, 0x09,        //     Usage Page (Button)
   0x19, 0x01,        //     Usage Minimum (0x01)
   0x29, 0x03,        //     Usage Maximum (0x03)
@@ -38,5 +30,7 @@ static const uint8_t _hidReportDescriptor[] PROGMEM = {
   0xC0,              // End Collection
 
   // 50 bytes
+
 };
-*/
+
+#endif // #ifndef test_h
