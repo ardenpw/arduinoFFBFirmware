@@ -1,13 +1,19 @@
 #include <Arduino.h>
 #include <HID.h>
+#include <math.h>
 
 #include "FFBDescriptor.h"
 #include "test.h"
 
-int main(){
-  for(;;);
+void setup(){
+  static HIDSubDescriptor node(_testDescriptor, sizeof(_testDescriptor));
+  HID().AppendDescriptor(&node);
 }
 
+void loop(){
+  
+}
+ 
 /*
 #define HID_REPORT_DESCRIPTOR_TYPE 0x22
 

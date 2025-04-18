@@ -1,7 +1,7 @@
 #ifndef test_h
 #define test_h
 
-static const uint8_t testDescriptor[] = {
+static const uint8_t _testDescriptor[] = {
   0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
   0x09, 0x02,        // Usage (Mouse)
   0xA1, 0x01,        // Collection (Application)
@@ -32,5 +32,17 @@ static const uint8_t testDescriptor[] = {
   // 50 bytes
 
 };
+
+class device_ {
+  private:
+    uint8_t buttons;
+  
+  public:
+    device_(void);
+    void begin();
+    void doReport();
+};
+
+extern device_ device;
 
 #endif // #ifndef test_h
