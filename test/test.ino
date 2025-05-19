@@ -1,128 +1,68 @@
-#include <Arduino.h>
 #include <HID.h>
 #include <math.h>
+#include <PluggableUSB.h>
+#include <USBAPI.h>
 
-#include "FFBDescriptor.h"
-#include "test.h"
+// Your original descriptor
+static const uint8_t _testDescriptor[] PROGMEM = {
+  0x05, 0x01,        // USAGE_PAGE (Generic Desktop)
+  0x09, 0x04,        // USAGE (Mouse)
+  0xA1, 0x01,        // COLLECTION (Application)
+    0x09, 0x01,      //   USAGE (Pointer)
+    0xA1, 0x00,      //   COLLECTION (Physical)
 
-void setup(){
-  static HIDSubDescriptor node(_testDescriptor, sizeof(_testDescriptor));
-  HID().AppendDescriptor(&node);
-}
+      // 3 Buttons
+      0x05, 0x09,    //     USAGE_PAGE (Button)
+      0x19, 0x01,    //     USAGE_MINIMUM (Button 1)
+      0x29, 0x08,    //     USAGE_MAXIMUM (Button 8)
+      0x15, 0x00,    //     LOGICAL_MINIMUM (0)
+      0x25, 0x01,    //     LOGICAL_MAXIMUM (1)
+      0x95, 0x08,    //     REPORT_COUNT (8)
+      0x75, 0x01,    //     REPORT_SIZE (1)
+      0x81, 0x02,    //     INPUT (Data,Var,Abs)
 
-void loop(){
-  
-}
- 
-/*
-#define HID_REPORT_DESCRIPTOR_TYPE 0x22
+      // X and Y movement
+      0x05, 0x01,    //     USAGE_PAGE (Generic Desktop)
+      0x09, 0x30,    //     USAGE (X)
+      0x09, 0x31,    //     USAGE (Y)
+      0x15, 0x81,    //     LOGICAL_MINIMUM (-127)
+      0x25, 0x7F,    //     LOGICAL_MAXIMUM (127)
+      0x75, 0x08,    //     REPORT_SIZE (8)
+      0x95, 0x02,    //     REPORT_COUNT (2)
+      0x81, 0x06,    //     INPUT (Data,Var,Rel)
 
-A class that inherits from PluggableUSBModule
-Implementation of required virtual methods:
-
-setup()
-getInterface()
-getDescriptor()
-
-USB descriptor definitions
-Endpoint management
-*/
-/*
-// try and make a gamepad with buttons and axis
-
-typedef struct{
-  uint8_t reportID;
-  uint8_t buttons;
-  int16_t xAxis;
-  int16_t yAxis;
-} HIDBallsREPORT_t;
-
-class MyHIDDevice : public PluggableUSBModule{
-  public:
-    MyHIDDevice(uint8_t* epType = nullptr) : PluggableUSBModule(1, 1, epType ? epType : defaultEpType) {
-      PluggableUSB().plug(this);
-    }
-
-    bool setup(USBSetup& setup){
-      return false;
-    }
-
-    int getInterface(uint8_t* interfaceCount){
-      *interfaceCount += 1;
-      uint8_t descriptorData[] = {
-        0x05,        // bLength
-        0x01,        // bDescriptorType (Device)
-        0x09, 0x05,  // bcdUSB 5.09
-        0xA1,        // bDeviceClass 
-
-        0x01,        // bLength
-        0xA1,        // bLength
-        0x00,        // bDescriptorType (Undefined)
-        0x85, 0x01, 0x05, 0x09, 0x19, 0x01, 0x29, 0x03, 0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 0x81, 0x02, 0x95, 0x01, 0x75, 0x05, 0x81, 0x03, 0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x02, 0x81, 0x06, 0xC0, 0xC0, 
-        // 50 bytes
-      };
-      return USB_SendControl(0, descriptorData, sizeof(descriptorData));
-    }
-
-    int getDescriptor(USBSetup& setup){
-      if (setup.wValueH == HID_REPORT_DESCRIPTOR_TYPE) {
-        return USB_SendControl(TRANSFER_PGM, _hidReportDescriptor, sizeof(_hidReportDescriptor));
-      }
-      return 0;
-    }
-
-    uint8_t getShortName(char* name) {
-      strcpy(name, "MyHID");
-      return 5;
-    }
-    
-    void sendReport(uint8_t* data, int length) {
-      USB_Send(pluggedEndpoint, data, min(length, 16));
-    }
-    
-  protected:
-    uint8_t defaultEpType[1] = {EP_TYPE_INTERRUPT_IN};
+    0xC0,            //   END_COLLECTION
+  0xC0               // END_COLLECTION
 };
 
-MyHIDDevice aaaa;
+// Wrap descriptor in the HID library’s sub-descriptor type
+static HIDSubDescriptor node(_testDescriptor, sizeof(_testDescriptor));
 
-void setup(){
-  Serial.begin(9600);
-}
-
-void loop(){
-  uint8_t data[16] = {0};
-  // Fill data
-  aaaa.sendReport(data, 16);
-  delay(1000);
-}
-*/
-
-/*
-const int BUTTON_PIN = 2; // Declare the button pin
-const int X_PIN = A0;     // Declare the X-axis pin
-const int Y_PIN = A1;     // Declare the Y-axis pin
+typedef struct {
+  uint8_t reportId;
+  uint8_t buttons;  
+  int8_t  x;
+  int8_t  y;
+} report;
 
 void setup() {
-  static HIDSubDescriptor node(_hidReportDescriptor, sizeof(_hidReportDescriptor));
+  // Hook our custom descriptor into the USB stack
   HID().AppendDescriptor(&node);
+  
 }
 
-struct JoystickReport {
-  uint8_t buttons; // 4 buttons (bits 0-3)
-  uint8_t x;       // X-axis (0-255)
-  uint8_t y;       // Y-axis (0-255)
-};
+double asdf = 0.0;
 
 void loop() {
-  JoystickReport report = {
-    .buttons = (digitalRead(BUTTON_PIN) == LOW) ? 0b0001 : 0b0000, // Read the button state
-    .x = analogRead(X_PIN) >> 2, // Convert 10-bit ADC to 8-bit
-    .y = analogRead(Y_PIN) >> 2
-  };
-
-  HID().SendReport(1, &report, sizeof(report));
-  delay(10);
+  double sinValue = sin(asdf);
+  asdf += 0.05;  // Smaller increment for smoother movement
+  
+  
+  report rpt;
+  rpt.reportId = 1;
+  rpt.buttons = 1;
+  rpt.x = (int8_t)(sinValue * 127);  // Convert to proper range for int8_t (-127 to 127)
+  rpt.y = 0;
+ 
+  HID().SendReport(2, &rpt, sizeof(rpt));
 }
-*/
-
