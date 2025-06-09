@@ -1,9 +1,6 @@
 #include <HID.h>
 #include <math.h>
-#include <PluggableUSB.h>
-#include <USBAPI.h>
 
-// Your original descriptor
 static const uint8_t _testDescriptor[] PROGMEM = {
   0x05, 0x01,        // USAGE_PAGE (Generic Desktop)
   0x09, 0x04,        // USAGE (Mouse)
@@ -35,7 +32,6 @@ static const uint8_t _testDescriptor[] PROGMEM = {
   0xC0               // END_COLLECTION
 };
 
-// Wrap descriptor in the HID library’s sub-descriptor type
 static HIDSubDescriptor node(_testDescriptor, sizeof(_testDescriptor));
 
 typedef struct {
@@ -46,7 +42,6 @@ typedef struct {
 } report;
 
 void setup() {
-  // Hook our custom descriptor into the USB stack
   HID().AppendDescriptor(&node);
   
 }
@@ -55,13 +50,13 @@ double asdf = 0.0;
 
 void loop() {
   double sinValue = sin(asdf);
-  asdf += 0.05;  // Smaller increment for smoother movement
+  asdf += 0.05;  
   
   
   report rpt;
   rpt.reportId = 1;
   rpt.buttons = 1;
-  rpt.x = (int8_t)(sinValue * 127);  // Convert to proper range for int8_t (-127 to 127)
+  rpt.x = (int8_t)(sinValue * 127);
   rpt.y = 0;
  
   HID().SendReport(2, &rpt, sizeof(rpt));
